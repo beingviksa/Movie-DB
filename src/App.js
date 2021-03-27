@@ -1,70 +1,98 @@
 import React, { useState, useEffect } from "react";
-import { useFetch } from "./useFetch";
-import Follower from "./Follower";
+import { FaSearch } from "react-icons/fa";
+import Photo from "./Photo";
+const clientID = `?client_id=${process.env.REACT_APP_ACCESS_KEY}`;
+// i3HN4rD52FvsO0rYDPzgX-dIdgW5NmpNa4d843_FXFo
+// LND0AX8LvHrxCRk-FfnoD7FoeAD0BIWCN3vypSDHqW4
+const mainUrl = `https://api.unsplash.com/photos/`;
+const searchUrl = `https://api.unsplash.com/search/photos/`;
+
 function App() {
-  const { loading, data } = useFetch();
+  const [loading, setLoading] = useState(false);
+  const [photos, setPhotos] = useState([]);
   const [page, setPage] = useState(0);
-  const [followers, setFollowes] = useState([]);
+  const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    if (loading) return;
-    setFollowes(data[page]);
-  }, [loading, page]);
+  const fetchImages = async () => {
+    setLoading(true);
+    let url;
+    const urlPage = `&page=${page}`;
+    const urlQuery = `&query=${query}`;
 
-  const nextPage = () => {
-    setPage((oldPage) => {
-      let nextPage = oldPage + 1;
-      if (nextPage > data.length - 1) {
-        nextPage = 0;
-      }
-      return nextPage;
-    });
+    if (query) {
+      url = `${searchUrl}${clientID}${urlPage}${urlQuery}`;
+    } else {
+      url = `${mainUrl}${clientID}${urlPage}`;
+    }
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      setPhotos((oldPhotos) => {
+        if (query && page === 1) {
+          return data.results;
+        } else if (query) {
+          return [...oldPhotos, ...data.results];
+        } else {
+          return [...oldPhotos, ...data];
+        }
+      });
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.log(error);
+    }
   };
 
-  const prevPage = () => {
-    setPage((oldPage) => {
-      let prevPage = oldPage - 1;
-      if (prevPage < 0) {
-        prevPage = data.length - 1;
+  useEffect(() => {
+    fetchImages();
+    // eslint-disable-next-line
+  }, [page]);
+
+  useEffect(() => {
+    const event = window.addEventListener("scroll", () => {
+      if (
+        !loading &&
+        window.innerHeight + window.scrollY >= document.body.scrollHeight - 2
+      ) {
+        setPage((oldPage) => {
+          return oldPage + 1;
+        });
       }
-      return prevPage;
     });
+    return () => window.removeEventListener("scroll", event);
+    // eslint-disable-next-line
+  }, []);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setPage(1);
   };
 
   return (
     <main>
-      <div className="section-title">
-        <h1>{loading ? "loading" : "pagination"}</h1>
-        <div className="underline"></div>
-      </div>
-      <div className="followers">
-        <div className="container">
-          {followers.map((follower) => {
-            return <Follower key={follower.id} {...follower} />;
+      <section className="search">
+        <form className="search-form">
+          <input
+            type="text"
+            placeholder="search"
+            className="form-input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <button type="submit" className="submit-btn" onClick={handleSubmit}>
+            <FaSearch />
+          </button>
+        </form>
+      </section>
+      <section className="photos">
+        <div className="photos-center">
+          {photos.map((photo) => {
+            return <Photo key={photo.id} {...photo} />;
           })}
         </div>
-        {!loading && (
-          <div className="btn-container">
-            <button className="prev-btn" onClick={prevPage}>
-              prev
-            </button>
-            {data.map((item, index) => {
-              return (
-                <button
-                  key={index}
-                  className={`page-btn ${index === page ? "active-btn" : null}`}
-                  onClick={() => setPage(index)}
-                >
-                  {index + 1}
-                </button>
-              );
-            })}
-            <button className="next-btn" onClick={nextPage}>
-              next
-            </button>
-          </div>
-        )}
-      </div>
+        {loading && <h2 className="loading">Loading...</h2>}
+      </section>
     </main>
   );
 }
